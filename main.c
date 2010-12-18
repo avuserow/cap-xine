@@ -69,9 +69,8 @@ int main (int argc, char* argv[]) {
 
 	nonblock(NB_ENABLE);
 
-	int volume = xine_get_param(stream, XINE_PARAM_AUDIO_VOLUME);
+	unsigned int volume = xine_get_param(stream, XINE_PARAM_AUDIO_AMP_LEVEL);
 	printf("volume is %d\n", volume);
-	printf("mute is %d\n", xine_get_param(stream, XINE_PARAM_AUDIO_MUTE));
 
 	// the stopped status is the primary thing to check here, since some files
 	// report being longer than they are
@@ -86,9 +85,19 @@ int main (int argc, char* argv[]) {
 
 			if (c == 'q') break;
 			switch (c) {
-				case 'a': xine_set_param(stream, XINE_PARAM_AUDIO_VOLUME, volume + 10);
-				case 'z': xine_set_param(stream, XINE_PARAM_AUDIO_VOLUME, volume - 10);
+				case 'a':
+					if (volume < 200) {
+						xine_set_param(stream, XINE_PARAM_AUDIO_AMP_LEVEL, volume + 10);
+					}
+					break;
+				case 'z':
+					if (volume > 0) {
+						xine_set_param(stream, XINE_PARAM_AUDIO_AMP_LEVEL, volume - 10);
+					}
+					break;
 			}
+			volume = xine_get_param(stream, XINE_PARAM_AUDIO_AMP_LEVEL);
+			printf("volume is now %u\n", volume);
 		}
 
 		xine_get_pos_length(stream, &pos_stream, &pos_time, &length_time);
