@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <termios.h>
+#include <string.h>
+#include <stdlib.h>
 
 #include <xine.h>
 
@@ -39,7 +41,25 @@ void nonblock(int state) {
 	}
 	//set the terminal attributes.
 	tcsetattr(STDIN_FILENO, TCSANOW, &ttystate);
+}
 
+char* fetchline() {
+	unsigned int size = 1;
+	unsigned int used = 0;
+	char* line = malloc(size);
+
+	char c = '?';
+	do {
+		c = getchar();
+		if (c != '\n') line[used++] = c;
+		if (used == size) {
+			size *= 2;
+			line = realloc(line, size);
+		}
+	} while (c != '\n');
+	line[used++] = '\0';
+
+	return line;
 }
 
 int main (int argc, char* argv[]) {
@@ -67,7 +87,7 @@ int main (int argc, char* argv[]) {
 	printf("length: %d\n", length_time);
 	int status = xine_get_status(stream);
 
-	nonblock(NB_ENABLE);
+	//nonblock(NB_ENABLE);
 
 	unsigned int volume = xine_get_param(stream, XINE_PARAM_AUDIO_AMP_LEVEL);
 	printf("volume is %d\n", volume);
@@ -75,29 +95,33 @@ int main (int argc, char* argv[]) {
 	// the stopped status is the primary thing to check here, since some files
 	// report being longer than they are
 	while (pos_time <= length_time && status != XINE_STATUS_STOP) {
-		status = xine_get_status(stream);
-
-		//printf("volume is %d\n", volume);
-
 		if (kbhit()) {
-			char c = getchar();
-			printf("got a %d\n", c);
+			char* line = fetchline();
+			printf("got a %s\n", line);
 
-			if (c == 'q') break;
-			switch (c) {
-				case 'a':
-					if (volume < 200) {
-						xine_set_param(stream, XINE_PARAM_AUDIO_AMP_LEVEL, volume + 10);
-					}
-					break;
-				case 'z':
-					if (volume > 0) {
-						xine_set_param(stream, XINE_PARAM_AUDIO_AMP_LEVEL, volume - 10);
-					}
-					break;
+			if (strncmp("vol", line, 3) == 0) {
+				int vol;
+				sscanf(line, "vol %d\n", &vol);
+				if (vol > 200) vol = 200;
+				if (vol < 0) vol = 0;
+				printf("changing volume to %d\n", vol);
+				xine_set_param(stream, XINE_PARAM_AUDIO_AMP_LEVEL, vol);
+				volume = xine_get_param(stream, XINE_PARAM_AUDIO_AMP_LEVEL);
+			} else if (strncmp("skip", line, 4) == 0) {
+				char* newsong = line + 5;
+				printf("switching to song '%s'\n", newsong);
+				xine_close(stream);
+				xine_open(stream, newsong);
+				xine_play(stream, 0, 0);
+			} else if (strncmp("quit", line, 4) == 0) {
+				printf("exiting...\n");
+				free(line);
+				break;
+			} else {
+				printf("unknown command: '%s'\n", line);
 			}
-			volume = xine_get_param(stream, XINE_PARAM_AUDIO_AMP_LEVEL);
-			printf("volume is now %u\n", volume);
+
+			free(line);
 		}
 
 		xine_get_pos_length(stream, &pos_stream, &pos_time, &length_time);
@@ -109,6 +133,7 @@ int main (int argc, char* argv[]) {
 			if (DEBUG) printf("... short\n");
 			usleep(length_time - pos_time);
 		}
+		status = xine_get_status(stream);
 	}
 
 	nonblock(NB_DISABLE);
