@@ -12,6 +12,9 @@
 #define NB_ENABLE 1
 #define NB_DISABLE 0
 
+#define true 1
+#define false 0
+
 // thanks to http://cc.byexamples.com/2007/04/08/non-blocking-user-input-in-loop-without-ncurses/
 int kbhit() {
 	struct timeval tv;
@@ -62,6 +65,17 @@ char* fetchline() {
 	return line;
 }
 
+// TODO: make these switch between AUDIO_VOLUME and AUDIO_AMP_LEVEL
+void setvolume(xine_stream_t* stream, int vol) {
+	if (vol > 200) vol = 200;
+	if (vol < 0) vol = 0;
+	xine_set_param(stream, XINE_PARAM_AUDIO_AMP_LEVEL, vol);
+}
+
+int getvolume(xine_stream_t* stream) {
+	return xine_get_param(stream, XINE_PARAM_AUDIO_AMP_LEVEL);
+}
+
 int main (int argc, char* argv[]) {
 	// basic xine initialization
 	xine_t *engine;
@@ -79,67 +93,76 @@ int main (int argc, char* argv[]) {
 	xine_stream_t *stream;
 	stream = xine_stream_new(engine, ap, vp);
 
-	xine_open(stream, argv[1]);
-	xine_play(stream, 0, 0);
+	char exiting = false;
+	char* filename = NULL;
+	while (!exiting) {
+		if (filename == NULL) filename = fetchline();
 
-	int pos_stream, pos_time, length_time;
-	xine_get_pos_length(stream, &pos_stream, &pos_time, &length_time);
-	printf("length: %d\n", length_time);
-	int status = xine_get_status(stream);
+		xine_open(stream, filename);
 
-	//nonblock(NB_ENABLE);
+		free(filename);
+		filename = NULL;
 
-	unsigned int volume = xine_get_param(stream, XINE_PARAM_AUDIO_AMP_LEVEL);
-	printf("volume is %d\n", volume);
+		xine_play(stream, 0, 0);
 
-	// the stopped status is the primary thing to check here, since some files
-	// report being longer than they are
-	while (pos_time <= length_time && status != XINE_STATUS_STOP) {
-		if (kbhit()) {
-			char* line = fetchline();
-			printf("got a %s\n", line);
+		int pos_stream, pos_time, length_time;
+		xine_get_pos_length(stream, &pos_stream, &pos_time, &length_time);
+		printf("length: %d\n", length_time);
+		int status = xine_get_status(stream);
 
-			if (strncmp("vol", line, 3) == 0) {
-				int vol;
-				sscanf(line, "vol %d\n", &vol);
-				if (vol > 200) vol = 200;
-				if (vol < 0) vol = 0;
-				printf("changing volume to %d\n", vol);
-				xine_set_param(stream, XINE_PARAM_AUDIO_AMP_LEVEL, vol);
-				volume = xine_get_param(stream, XINE_PARAM_AUDIO_AMP_LEVEL);
-			} else if (strncmp("skip", line, 4) == 0) {
-				char* newsong = line + 5;
-				printf("switching to song '%s'\n", newsong);
-				xine_close(stream);
-				xine_open(stream, newsong);
-				xine_play(stream, 0, 0);
-			} else if (strncmp("quit", line, 4) == 0) {
-				printf("exiting...\n");
+		//nonblock(NB_ENABLE);
+
+		// the stopped status is the primary thing to check here, since some files
+		// report being longer than they are
+		while (pos_time <= length_time && status != XINE_STATUS_STOP && !exiting) {
+			if (kbhit()) {
+				char* line = fetchline();
+				printf("got a %s\n", line);
+
+				if (strncmp("vol", line, 3) == 0) {
+					int vol;
+					sscanf(line, "vol %d\n", &vol);
+					printf("changing volume to %d\n", vol);
+					setvolume(stream, vol);
+				} else if (strncmp("skip", line, 4) == 0) {
+					char* newsong = line + 5;
+					printf("switching to song '%s'\n", newsong);
+					xine_close(stream);
+					xine_open(stream, newsong);
+					xine_play(stream, 0, 0);
+				} else if (strncmp("quit", line, 4) == 0) {
+					printf("exiting...\n");
+					free(line);
+					exiting = true;
+				} else if (strncmp("next", line, 4) == 0) {
+					char* newsong = line + 5;
+					filename = malloc(strlen(newsong));
+					strcpy(filename, newsong);
+					printf("making the next song '%s'\n", filename);
+				} else {
+					printf("unknown command: '%s'\n", line);
+				}
+
 				free(line);
-				break;
-			} else {
-				printf("unknown command: '%s'\n", line);
 			}
 
-			free(line);
+			xine_get_pos_length(stream, &pos_stream, &pos_time, &length_time);
+			if (DEBUG) printf("length (%d), pos(%d) ", length_time, pos_time);
+			if (SLEEP_TIME < length_time - pos_time) {
+				if (DEBUG) printf("... normal\n");
+				usleep(SLEEP_TIME);
+			} else {
+				if (DEBUG) printf("... short\n");
+				usleep(length_time - pos_time);
+			}
+			status = xine_get_status(stream);
 		}
 
-		xine_get_pos_length(stream, &pos_stream, &pos_time, &length_time);
-		if (DEBUG) printf("length (%d), pos(%d) ", length_time, pos_time);
-		if (SLEEP_TIME < length_time - pos_time) {
-			if (DEBUG) printf("... normal\n");
-			usleep(SLEEP_TIME);
-		} else {
-			if (DEBUG) printf("... short\n");
-			usleep(length_time - pos_time);
-		}
-		status = xine_get_status(stream);
+		nonblock(NB_DISABLE);
+
+		// Stop playing and close down the stream 
+		xine_close(stream);
 	}
-
-	nonblock(NB_DISABLE);
-
-	// Stop playing and close down the stream 
-	xine_close(stream);
 
 	// Now shut down cleanly
 	xine_close_audio_driver(engine, ap);
