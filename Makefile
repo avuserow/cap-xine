@@ -1,7 +1,7 @@
 all	:	cap
 debug : cap-debug
 
-CFLAGS = -Wall -Werror -std=gnu99 -pedantic
+CFLAGS = -Wall -Werror -std=gnu99 -pedantic -g
 
 cap	: main.o
 	gcc $(CFLAGS) -o cap main.o -lxine
