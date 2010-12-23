@@ -124,12 +124,13 @@ int main (int argc, char* argv[]) {
 		xine_get_pos_length(stream, &pos_stream, &pos_time, &length_time);
 		//printf("length: %d\n", length_time);
 		int status = xine_get_status(stream);
+		printf("status: %d\n", status);
 
 		//nonblock(NB_ENABLE);
 
 		// the stopped status is the primary thing to check here, since some files
 		// report being longer than they are
-		while (pos_time <= length_time && status != XINE_STATUS_STOP && !exiting) {
+		while (pos_time <= length_time && status == XINE_STATUS_PLAY && !exiting) {
 			if (kbhit()) {
 				char* line = fetchline();
 				//printf("got a %s\n", line);
@@ -147,7 +148,6 @@ int main (int argc, char* argv[]) {
 					xine_play(stream, 0, 0);
 				} else if (strncmp("quit", line, 4) == 0) {
 					//printf("exiting...\n");
-					free(line);
 					exiting = true;
 				} else if (strncmp("next", line, 4) == 0) {
 					char* newsong = line + 5;
