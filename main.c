@@ -8,7 +8,6 @@
 #include <xine.h>
 
 #define SLEEP_TIME 250
-#define DEBUG 0
 
 #define NB_ENABLE 1
 #define NB_DISABLE 0
@@ -169,12 +168,18 @@ int main (int argc, char* argv[]) {
 				printf("go! go!\n");
 				fflush(stdout);
 			}
-			if (DEBUG) printf("length (%d), pos(%d) ", length_time, pos_time);
+#ifdef DEBUG
+			fprintf(stderr, "length (%d), pos(%d) ", length_time, pos_time);
+#endif
 			if (SLEEP_TIME < length_time - pos_time) {
-				if (DEBUG) printf("... normal\n");
+#ifdef DEBUG
+				fprintf(stderr, "... normal\n");
+#endif
 				usleep(SLEEP_TIME);
 			} else {
-				if (DEBUG) printf("... short\n");
+#ifdef DEBUG
+				fprintf(stderr, "... short\n");
+#endif
 				usleep(length_time - pos_time);
 			}
 
