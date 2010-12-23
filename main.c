@@ -3,6 +3,7 @@
 #include <termios.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 #include <xine.h>
 
@@ -11,9 +12,6 @@
 
 #define NB_ENABLE 1
 #define NB_DISABLE 0
-
-#define true 1
-#define false 0
 
 // thanks to http://cc.byexamples.com/2007/04/08/non-blocking-user-input-in-loop-without-ncurses/
 int kbhit() {
@@ -93,7 +91,7 @@ int main (int argc, char* argv[]) {
 	xine_stream_t *stream;
 	stream = xine_stream_new(engine, ap, vp);
 
-	char exiting = false;
+	bool exiting = false;
 	char* filename = NULL;
 
 	printf("Custom Acoustics Player - Xine 0.1\n");
@@ -101,7 +99,7 @@ int main (int argc, char* argv[]) {
 
 	// variable to decide if we've informed the controlling program that we
 	// want a new song.
-	char gogo = false;
+	bool gogo = false;
 	while (!exiting) {
 		if (filename == NULL) {
 			char* l = fetchline();
