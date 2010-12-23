@@ -95,9 +95,27 @@ int main (int argc, char* argv[]) {
 
 	char exiting = false;
 	char* filename = NULL;
-	while (!exiting) {
-		if (filename == NULL) filename = fetchline();
 
+	printf("Custom Acoustics Player - Xine 0.1\n");
+	fflush(stdout);
+
+	// variable to decide if we've informed the controlling program that we
+	// want a new song.
+	char gogo = false;
+	while (!exiting) {
+		if (filename == NULL) {
+			char* l = fetchline();
+
+			// this command begins with "next " even if it is the initial
+			// command one, just for laziness and ease of implmentation
+			if (strncmp("next", l, 4) == 0) {
+				filename = malloc(strlen(l) - 5);
+				strcpy(filename, l + 5);
+				free(l);
+			}
+		}
+
+		gogo = false;
 		xine_open(stream, filename);
 
 		free(filename);
@@ -107,7 +125,7 @@ int main (int argc, char* argv[]) {
 
 		int pos_stream, pos_time, length_time;
 		xine_get_pos_length(stream, &pos_stream, &pos_time, &length_time);
-		printf("length: %d\n", length_time);
+		//printf("length: %d\n", length_time);
 		int status = xine_get_status(stream);
 
 		//nonblock(NB_ENABLE);
@@ -117,36 +135,42 @@ int main (int argc, char* argv[]) {
 		while (pos_time <= length_time && status != XINE_STATUS_STOP && !exiting) {
 			if (kbhit()) {
 				char* line = fetchline();
-				printf("got a %s\n", line);
+				//printf("got a %s\n", line);
 
 				if (strncmp("vol", line, 3) == 0) {
 					int vol;
 					sscanf(line, "vol %d\n", &vol);
-					printf("changing volume to %d\n", vol);
+					//printf("changing volume to %d\n", vol);
 					setvolume(stream, vol);
 				} else if (strncmp("skip", line, 4) == 0) {
 					char* newsong = line + 5;
-					printf("switching to song '%s'\n", newsong);
+					//printf("switching to song '%s'\n", newsong);
 					xine_close(stream);
 					xine_open(stream, newsong);
 					xine_play(stream, 0, 0);
 				} else if (strncmp("quit", line, 4) == 0) {
-					printf("exiting...\n");
+					//printf("exiting...\n");
 					free(line);
 					exiting = true;
 				} else if (strncmp("next", line, 4) == 0) {
 					char* newsong = line + 5;
 					filename = malloc(strlen(newsong));
 					strcpy(filename, newsong);
-					printf("making the next song '%s'\n", filename);
+					//printf("making the next song '%s'\n", filename);
 				} else {
 					printf("unknown command: '%s'\n", line);
 				}
 
+				fflush(stdout);
 				free(line);
 			}
 
 			xine_get_pos_length(stream, &pos_stream, &pos_time, &length_time);
+			if (length_time - pos_time < 1000 && gogo == false) {
+				gogo = true;
+				printf("go! go!\n");
+				fflush(stdout);
+			}
 			if (DEBUG) printf("length (%d), pos(%d) ", length_time, pos_time);
 			if (SLEEP_TIME < length_time - pos_time) {
 				if (DEBUG) printf("... normal\n");
@@ -155,6 +179,7 @@ int main (int argc, char* argv[]) {
 				if (DEBUG) printf("... short\n");
 				usleep(length_time - pos_time);
 			}
+
 			status = xine_get_status(stream);
 		}
 
@@ -162,6 +187,16 @@ int main (int argc, char* argv[]) {
 
 		// Stop playing and close down the stream 
 		xine_close(stream);
+
+		// somehow we got here without telling them to tell us more
+		// so let's fix that
+		// this happens when the length of a file is incorrect and we hit the
+		// end of the data prior to the expected end
+		if (gogo == false) {
+			gogo = true; // just for consistency
+			printf("go! go!\n");
+			fflush(stdout);
+		}
 	}
 
 	// Now shut down cleanly
