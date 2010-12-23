@@ -106,7 +106,8 @@ int main (int argc, char* argv[]) {
 			// this command begins with "next " even if it is the initial
 			// command one, just for laziness and ease of implmentation
 			if (strncmp("next", l, 4) == 0) {
-				filename = malloc(strlen(l) - 5);
+				filename = malloc(strlen(l) - 5 + 1);
+				memset(filename, 0, (strlen(l)-5+1));
 				strcpy(filename, l + 5);
 				free(l);
 			}
@@ -151,7 +152,8 @@ int main (int argc, char* argv[]) {
 					exiting = true;
 				} else if (strncmp("next", line, 4) == 0) {
 					char* newsong = line + 5;
-					filename = malloc(strlen(newsong));
+					filename = malloc(strlen(newsong)+1);
+					memset(filename, 0, (strlen(newsong)+1));
 					strcpy(filename, newsong);
 					//printf("making the next song '%s'\n", filename);
 				} else {
