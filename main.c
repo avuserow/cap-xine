@@ -121,11 +121,11 @@ int main (int argc, char* argv[]) {
 
 		xine_play(stream, 0, 0);
 
-		int pos_stream, pos_time, length_time;
+		int pos_stream = 0, pos_time = 0, length_time = 10000;
 		xine_get_pos_length(stream, &pos_stream, &pos_time, &length_time);
 		//printf("length: %d\n", length_time);
 		int status = xine_get_status(stream);
-		printf("status: %d\n", status);
+		//printf("status: %d\n", status);
 
 		//nonblock(NB_ENABLE);
 
@@ -148,8 +148,9 @@ int main (int argc, char* argv[]) {
 					xine_open(stream, newsong);
 					xine_play(stream, 0, 0);
 				} else if (strncmp("quit", line, 4) == 0) {
-					//printf("exiting...\n");
+					fprintf(stderr, "exiting...\n");
 					exiting = true;
+					break;
 				} else if (strncmp("next", line, 4) == 0) {
 					char* newsong = line + 5;
 					filename = malloc(strlen(newsong)+1);
@@ -157,7 +158,7 @@ int main (int argc, char* argv[]) {
 					strcpy(filename, newsong);
 					//printf("making the next song '%s'\n", filename);
 				} else {
-					printf("unknown command: '%s'\n", line);
+					fprintf(stderr, "unknown command: '%s'\n", line);
 				}
 
 				fflush(stdout);
@@ -166,9 +167,9 @@ int main (int argc, char* argv[]) {
 
 			xine_get_pos_length(stream, &pos_stream, &pos_time, &length_time);
 			if (length_time - pos_time < 1000 && gogo == false) {
-				gogo = true;
-				printf("go! go!\n");
+				printf("go go (%d, %d, %d)!\n", length_time, pos_time, gogo);
 				fflush(stdout);
+				gogo = true;
 			}
 #ifdef DEBUG
 			fprintf(stderr, "length (%d), pos(%d) ", length_time, pos_time);
@@ -191,6 +192,7 @@ int main (int argc, char* argv[]) {
 		nonblock(NB_DISABLE);
 
 		// Stop playing and close down the stream 
+		xine_stop(stream);
 		xine_close(stream);
 
 		// somehow we got here without telling them to tell us more
